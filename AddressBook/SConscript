@@ -1,0 +1,11 @@
+# Copyright 2014 The Ostrich / by Itamar O
+# pylint: disable=undefined-variable,invalid-name
+
+"""AddressBook library SConscript script"""
+
+Import('*')
+
+module_targets = dict()
+module_targets['addressbook'] = env.Library('addressbook', ['addressbook.cc'])
+
+Return('module_targets')

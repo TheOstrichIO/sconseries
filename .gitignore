@@ -1,3 +1,4 @@
 .scons*
-bin
 *.o
+build
+*.py[co]
