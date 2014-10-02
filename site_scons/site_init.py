@@ -2,7 +2,71 @@
 
 """SCons site init script - automatically imported by SConstruct"""
 
+import os
 import re
+
+from site_config import flavors, ENV_OVERRIDES, ENV_EXTENSIONS
+
+def get_base_env(*args, **kwargs):
+    """Initialize and return a base construction environment.
+
+    All args received are passed transparently to SCons Environment init.
+    """
+    # Initialize new construction environment
+    env = Environment(*args, **kwargs)  # pylint: disable=undefined-variable
+    # If specific flavor target specified, skip processing other flavors
+    # Otherwise, include all known flavors
+    env.flavors = (set(flavors()).intersection(COMMAND_LINE_TARGETS)  # pylint: disable=undefined-variable
+                   or flavors())
+    # Perform base construction environment customizations from site_config
+    if '_common' in ENV_OVERRIDES:
+        env.Replace(**ENV_OVERRIDES['_common'])
+    if '_common' in ENV_EXTENSIONS:
+        env.Append(**ENV_EXTENSIONS['_common'])
+    return env
+
+def get_flavored_env(base_env, flavor):
+    """Customize and return a flavored construction environment."""
+    flavored_env = base_env.Clone()
+    # Prepare shared targets dictionary
+    flavored_env['targets'] = dict()
+    # Allow modules to use `env.get_targets('libname1', 'libname2', ...)` as
+    #  a shortcut for adding targets from other modules to sources lists.
+    flavored_env.get_targets = lambda *args, **kwargs: \
+        get_targets(flavored_env, *args, **kwargs)
+    # Apply flavored env overrides and customizations
+    if flavor in ENV_OVERRIDES:
+        flavored_env.Replace(**ENV_OVERRIDES[flavor])
+    if flavor in ENV_EXTENSIONS:
+        flavored_env.Append(**ENV_EXTENSIONS[flavor])
+    return flavored_env
+
+def process_module(env, module):
+    """Delegate build to a module-level SConscript using the specified env.
+
+    @param  env     Construction environment to use
+    @param  module  Directory of module
+
+    @raises AssertionError if `module` does not contain SConscript file
+    """
+    # Verify the SConscript file exists
+    sconscript_path = os.path.join(module, 'SConscript')
+    assert os.path.isfile(sconscript_path)
+    print 'scons: |- Reading module', module, '...'
+    # Execute the SConscript file, with variant_dir set to the
+    #  module dir under the project flavored build dir.
+    targets = env.SConscript(
+        sconscript_path,
+        variant_dir=os.path.join('$BUILDROOT', module),
+        exports={'env': env})
+    # Add the targets built by this module to the shared cross-module targets
+    #  dictionary, to allow the next modules to refer to these targets easily.
+    for target_name in targets:
+        # Target key built from module name and target name
+        # It is expected to be unique (per flavor)
+        target_key = '%s::%s' % (module, target_name)
+        assert target_key not in env['targets']
+        env['targets'][target_key] = targets[target_name]
 
 def get_targets(env, *args, **kwargs):
     """Return list of target nodes for given target name queries.

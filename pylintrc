@@ -1,0 +1,3 @@
+[MESSAGES CONTROL]
+# W0142 (star-args): Used * or ** magic (I'm using * and ** for unpacking, and I like it)
+disable=star-args
