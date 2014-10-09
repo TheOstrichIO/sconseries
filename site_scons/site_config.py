@@ -7,6 +7,8 @@ import os
 
 # Directory for build process outputs (object files etc.)
 _BUILD_BASE = 'build'
+# Directory where binary programs are installed in (under $build_base/$flavor)
+_BIN_SUBDIR = 'bin'
 
 def modules():
     """Generate modules to build.
@@ -26,6 +28,8 @@ ENV_OVERRIDES = {
         # Use clang compiler by default
         CC          = 'clang',
         CXX         = 'clang++',
+        # Path for installed binary programs
+        BINDIR      = os.path.join('$BUILDROOT', _BIN_SUBDIR),
     ),
     'debug': dict(
         BUILDROOT = os.path.join(_BUILD_BASE, 'debug'),
@@ -68,3 +72,24 @@ def flavors():
         # Skip "hidden" records
         if not flavor.startswith('_'):
             yield flavor
+
+def main():
+    """Main procedure - print out a requested variable (value per line)"""
+    import sys
+    if 2 == len(sys.argv):
+        var = sys.argv[1].lower()
+        items = list()
+        if var in ('flavors',):
+            items = flavors()
+        elif var in ('modules',):
+            items = modules()
+        elif var in ('build', 'build_dir', 'build_base'):
+            items = [_BUILD_BASE]
+        elif var in ('bin', 'bin_subdir'):
+            items = [_BIN_SUBDIR]
+        # print out the item values
+        for val in items:
+            print val
+
+if '__main__' == __name__:
+    main()

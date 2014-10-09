@@ -5,6 +5,8 @@
 import os
 import re
 
+from SCons.Errors import StopError
+
 from site_config import flavors, ENV_OVERRIDES, ENV_EXTENSIONS
 
 def get_base_env(*args, **kwargs):
@@ -14,10 +16,20 @@ def get_base_env(*args, **kwargs):
     """
     # Initialize new construction environment
     env = Environment(*args, **kwargs)  # pylint: disable=undefined-variable
-    # If specific flavor target specified, skip processing other flavors
-    # Otherwise, include all known flavors
-    env.flavors = (set(flavors()).intersection(COMMAND_LINE_TARGETS)  # pylint: disable=undefined-variable
-                   or flavors())
+    # If a flavor is activated in the external environment - use it
+    if 'BUILD_FLAVOR' in os.environ:
+        active_flavor = os.environ['BUILD_FLAVOR']
+        if not active_flavor in flavors():
+            raise StopError('%s (from env) is not a known flavor.' %
+                            (active_flavor))
+        print ('scons: Using active flavor "%s" from your environment' %
+               (active_flavor))
+        env.flavors = [active_flavor]
+    else:
+        # If specific flavor target specified, skip processing other flavors
+        # Otherwise, include all known flavors
+        env.flavors = (set(flavors()).intersection(COMMAND_LINE_TARGETS)  # pylint: disable=undefined-variable
+                       or flavors())
     # Perform base construction environment customizations from site_config
     if '_common' in ENV_OVERRIDES:
         env.Replace(**ENV_OVERRIDES['_common'])
@@ -67,6 +79,13 @@ def process_module(env, module):
         target_key = '%s::%s' % (module, target_name)
         assert target_key not in env['targets']
         env['targets'][target_key] = targets[target_name]
+        # Add Install-to-binary-directory for Program targets
+        for target in targets[target_name]:
+            # Program target determined by name of builder
+            # Probably a little hacky... (TODO: Improve)
+            if target.get_builder().get_name(env) in ('Program',):
+                bin_name = '%s.%s' % (module, os.path.basename(str(target)))
+                env.InstallAs(os.path.join('$BINDIR', bin_name), target)
 
 def get_targets(env, *args, **kwargs):
     """Return list of target nodes for given target name queries.
