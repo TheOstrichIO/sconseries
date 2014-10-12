@@ -1,12 +1,8 @@
 # Copyright 2014 The Ostrich / by Itamar O
-# pylint: disable=undefined-variable,invalid-name
+# pylint: disable=undefined-variable
 
 """AddressBook Writer SConscript script"""
 
 Import('*')
 
-module_targets = dict()
-module_targets['writer'] = env.Program(
-    'writer', ['writer.cc'] + env.get_targets('addressbook'))
-
-Return('module_targets')
+Prog('writer', 'writer.cc', with_libs='AddressBook::addressbook')
