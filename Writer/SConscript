@@ -3,6 +3,4 @@
 
 """AddressBook Writer SConscript script"""
 
-Import('*')
-
 Prog('writer', 'writer.cc', with_libs='AddressBook::addressbook')

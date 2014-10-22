@@ -3,6 +3,4 @@
 
 """AddressBook library SConscript script"""
 
-Import('*')
-
 Lib('addressbook', 'addressbook.cc')

@@ -6,6 +6,7 @@
 import os
 from collections import defaultdict
 
+import SCons
 from SCons import Node
 from SCons.Errors import StopError
 
@@ -94,12 +95,12 @@ class FlavorBuilder(object):
             SharedLib = self._lib_wrapper(self._env.SharedLibrary, module),
             Prog      = self._prog_wrapper(module),
         )
+        SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
         # Execute the SConscript file, with variant_dir set to the
         #  module dir under the project flavored build dir.
         self._env.SConscript(
             sconscript_path,
-            variant_dir=os.path.join('$BUILDROOT', module),
-            exports=shortcuts)
+            variant_dir=os.path.join('$BUILDROOT', module))
         # Add install targets for module
         # If module has hierarchical path, replace path-seps with periods
         bin_prefix = path_to_key(module)
