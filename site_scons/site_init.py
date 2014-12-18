@@ -10,8 +10,8 @@ import SCons
 from SCons import Node
 from SCons.Errors import StopError
 
-from site_config import flavors, ENV_OVERRIDES, ENV_EXTENSIONS
-from site_utils import listify, path_to_key
+from site_config import flavors, modules, ENV_OVERRIDES, ENV_EXTENSIONS
+from site_utils import listify, path_to_key, nop
 
 def get_base_env(*args, **kwargs):
     """Initialize and return a base construction environment.
@@ -63,6 +63,7 @@ class FlavorBuilder(object):
         @param base_env     Basic construction environment to start from
         @param flavor       The flavor to process
         """
+        self._flavor = flavor
         # Create construction env clone for flavor customizations
         self._env = base_env.Clone()
         # Initialize shared libraries dictionary
@@ -77,37 +78,46 @@ class FlavorBuilder(object):
         # Support using the flavor name as target name for its related targets
         self._env.Alias(flavor, '$BUILDROOT')
 
-    def process_module(self, module):
-        """Delegate build to a module-level SConscript using the flavored env.
-
-        @param  module  Directory of module
-
-        @raises AssertionError if `module` does not contain SConscript file
-        """
-        # Verify the SConscript file exists
-        sconscript_path = os.path.join(module, 'SConscript')
-        assert os.path.isfile(sconscript_path)
-        print 'scons: |- Reading module', module, '...'
-        # Prepare shortcuts to export to SConscript
-        shortcuts = dict(
-            Lib       = self._lib_wrapper(self._env.Library, module),
-            StaticLib = self._lib_wrapper(self._env.StaticLibrary, module),
-            SharedLib = self._lib_wrapper(self._env.SharedLibrary, module),
-            Prog      = self._prog_wrapper(module),
-        )
-        SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
-        # Execute the SConscript file, with variant_dir set to the
-        #  module dir under the project flavored build dir.
-        self._env.SConscript(
-            sconscript_path,
-            variant_dir=os.path.join('$BUILDROOT', module))
-        # Add install targets for module
-        # If module has hierarchical path, replace path-seps with periods
-        bin_prefix = path_to_key(module)
-        for prog in self._progs[module]:
-            assert isinstance(prog, Node.FS.File)
-            bin_name = '%s.%s' % (bin_prefix, prog.name)
-            self._env.InstallAs(os.path.join('$BINDIR', bin_name), prog)
+    def build(self):
+        """Build flavor using two-pass strategy."""
+        # First pass over all modules - process and collect library targets
+        for module in modules():
+            # Verify the SConscript file exists
+            sconscript_path = os.path.join(module, 'SConscript')
+            if not os.path.isfile(sconscript_path):
+                raise StopError('Missing SConscript file for module %s.' %
+                                (module))
+            print 'scons: |- First pass: Reading module %s ...' % (module)
+            shortcuts = dict(
+                Lib       = self._lib_wrapper(self._env.Library, module),
+                StaticLib = self._lib_wrapper(self._env.StaticLibrary, module),
+                SharedLib = self._lib_wrapper(self._env.SharedLibrary, module),
+                Prog      = nop,
+            )
+            SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
+            self._env.SConscript(
+                sconscript_path,
+                variant_dir=os.path.join('$BUILDROOT', module))
+        # Second pass over all modules - process program targets
+        shortcuts = dict()
+        for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib'):
+            shortcuts[nop_shortcut] = nop
+        for module in modules():
+            print 'scons: |- Second pass: Reading module %s ...' % (module)
+            shortcuts['Prog'] = self._prog_wrapper(module)
+            SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
+            self._env.SConscript(
+                os.path.join(module, 'SConscript'),
+                variant_dir=os.path.join('$BUILDROOT', module))
+        # Add install targets for programs from all modules
+        for module, prog_nodes in self._progs.iteritems():
+            for prog in prog_nodes:
+                assert isinstance(prog, Node.FS.File)
+                # If module is hierarchical, replace pathseps with periods
+                bin_name = path_to_key('%s.%s' % (module, prog.name))
+                self._env.InstallAs(os.path.join('$BINDIR', bin_name), prog)
+        # Support using the flavor name as target name for its related targets
+        self._env.Alias(self._flavor, '$BUILDROOT')
 
     def _lib_wrapper(self, bldr_func, module):
         """Return a wrapped customized flavored library builder for module.

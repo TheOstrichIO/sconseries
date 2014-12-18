@@ -18,3 +18,8 @@ def listify(args):
 def path_to_key(path):
     """Convert path to `key`, by replacing pathseps with periods."""
     return path.replace('/', '.').replace('\\', '.')
+
+def nop(*args, **kwargs):  # pylint: disable=unused-argument
+    """Take arbitrary args and kwargs and do absolutely nothing!"""
+    pass
+
