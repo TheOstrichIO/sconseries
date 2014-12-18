@@ -14,11 +14,9 @@ def modules():
     """Generate modules to build.
 
     Each module is a directory with a SConscript file.
-    Modules must be yielded in order of dependence,
-     such that modules[i] does not depend on modules[j] for every i<j.
     """
-    yield 'AddressBook'
     yield 'Writer'
+    yield 'AddressBook'
 
 # Dictionary of flavor-specific settings that should override values
 #  from the base environment (using env.Replace).
