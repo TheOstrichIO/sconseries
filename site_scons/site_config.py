@@ -5,18 +5,38 @@
 
 import os
 
+from site_utils import module_dirs_generator
+
 # Directory for build process outputs (object files etc.)
 _BUILD_BASE = 'build'
 # Directory where binary programs are installed in (under $build_base/$flavor)
 _BIN_SUBDIR = 'bin'
+
+# List of cached modules to save processing for second call and beyond
+_CACHED_MODULES = list()
 
 def modules():
     """Generate modules to build.
 
     Each module is a directory with a SConscript file.
     """
-    yield 'Writer'
-    yield 'AddressBook'
+    if not _CACHED_MODULES:
+        # Build the cache
+        def build_dir_skipper(dirpath):
+            """Return True if `dirpath` is the build base dir."""
+            return os.path.normpath(_BUILD_BASE) == os.path.normpath(dirpath)
+        def hidden_dir_skipper(dirpath):
+            """Return True if `dirpath` last dir component begins with '.'"""
+            last_dir = os.path.basename(dirpath)
+            return last_dir.startswith('.')
+        for module_path in module_dirs_generator(
+                max_depth=7, followlinks=False,
+                dir_skip_list=[build_dir_skipper, hidden_dir_skipper],
+                file_skip_list='.noscons'):
+            _CACHED_MODULES.append(module_path)
+    # Yield modules from cache
+    for module in _CACHED_MODULES:
+        yield module
 
 # Dictionary of flavor-specific settings that should override values
 #  from the base environment (using env.Replace).
