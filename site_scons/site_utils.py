@@ -4,6 +4,21 @@
 
 import os
 
+try:
+    from SCons.Script import GetOption
+except ImportError:
+    def GetOption(dummy):  # pylint: disable=invalid-name
+        """Stub GetOption if not running in SCons context"""
+        return True
+
+def sprint(message, *args):
+    """Silent-mode-aware SCons message printer."""
+    if not GetOption('silent'):
+        if args:
+            print 'scons:', message % (args)
+        else:
+            print 'scons:', message
+
 def listify(args):
     """Return args as a list.
 
@@ -62,7 +77,7 @@ def module_dirs_generator(max_depth=None, followlinks=False,
                 return False
         if intersection(filenames, file_skip_list):
             # Skip directories with skip-list files
-            print 'scons: |- Skipping %s (skip marker found)' % (dirpath)
+            sprint('|- Skipping %s (skip marker found)', dirpath)
             return False
         return True
     top = '.'
@@ -86,7 +101,7 @@ def module_dirs_generator(max_depth=None, followlinks=False,
                     dirnames[:] = []
                 if depth > max_depth:
                     # shouldn't reach here though - shout and skip
-                    print 'w00t?! Should not reach here ... o_O'
+                    sprint('w00t?! Should not reach here ... o_O')
                     continue
         # Yield directory with SConscript file
         if 'SConscript' in filenames:
