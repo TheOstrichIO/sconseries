@@ -11,7 +11,7 @@ from SCons import Node
 from SCons.Errors import StopError
 
 from site_config import flavors, modules, ENV_OVERRIDES, ENV_EXTENSIONS
-from site_utils import listify, path_to_key, nop
+from site_utils import listify, path_to_key, nop, sprint
 
 def get_base_env(*args, **kwargs):
     """Initialize and return a base construction environment.
@@ -26,8 +26,7 @@ def get_base_env(*args, **kwargs):
         if not active_flavor in flavors():
             raise StopError('%s (from env) is not a known flavor.' %
                             (active_flavor))
-        print ('scons: Using active flavor "%s" from your environment' %
-               (active_flavor))
+        sprint('Using active flavor "%s" from your environment', active_flavor)
         env.flavors = [active_flavor]
     else:
         # If specific flavor target specified, skip processing other flavors
@@ -87,7 +86,7 @@ class FlavorBuilder(object):
             if not os.path.isfile(sconscript_path):
                 raise StopError('Missing SConscript file for module %s.' %
                                 (module))
-            print 'scons: |- First pass: Reading module %s ...' % (module)
+            sprint('|- First pass: Reading module %s ...', module)
             shortcuts = dict(
                 Lib       = self._lib_wrapper(self._env.Library, module),
                 StaticLib = self._lib_wrapper(self._env.StaticLibrary, module),
@@ -103,7 +102,7 @@ class FlavorBuilder(object):
         for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib'):
             shortcuts[nop_shortcut] = nop
         for module in modules():
-            print 'scons: |- Second pass: Reading module %s ...' % (module)
+            sprint('|- Second pass: Reading module %s ...', module)
             shortcuts['Prog'] = self._prog_wrapper(module)
             SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
             self._env.SConscript(
