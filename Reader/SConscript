@@ -5,5 +5,5 @@
 
 Import('*')
 
-Prog('writer', 'writer.cc', with_libs='AddressBook::addressbook',
+Prog('reader', 'reader.cc', with_libs='AddressBook::addressbook',
      LIBS=['protobuf'])
