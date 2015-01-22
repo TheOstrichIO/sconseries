@@ -1,6 +1,6 @@
-# Copyright 2014 The Ostrich / by Itamar O
+# Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=undefined-variable
 
 """AddressBook library SConscript script"""
 
-Lib('addressbook', 'addressbook.cc')
+Lib('addressbook', 'addressbook.pb.cc')

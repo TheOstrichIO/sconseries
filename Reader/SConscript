@@ -3,5 +3,7 @@
 
 """AddressBook Writer SConscript script"""
 
-Prog('writer', 'writer.cc', with_libs='AddressBook::addressbook',
+Import('*')
+
+Prog('reader', 'reader.cc', with_libs='AddressBook::addressbook',
      LIBS=['protobuf'])
