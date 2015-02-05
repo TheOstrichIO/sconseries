@@ -1,7 +1,9 @@
-# Copyright 2014 The Ostrich / by Itamar O
+# Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=undefined-variable
 
-"""Flavor-based project main SConstruct script with SCons shortcuts"""
+"""Flavor-based project main SConstruct script with SCons shortcuts,
+and support for compiling Protocol Buffers.
+"""
 
 OSTRICH_SCONS_HELP = """usage: scons [OPTION] [TARGET or FLAVOR_NAME] ...
 
@@ -22,7 +24,7 @@ if GetOption('help'):
     Help(OSTRICH_SCONS_HELP)
 else:
     # Get the base construction environment
-    _BASE_ENV = get_base_env()
+    _BASE_ENV = get_base_env(tools=['default', 'protoc'])
     # Build every selected flavor
     for flavor in _BASE_ENV.flavors:
         sprint('+ Processing flavor %s ...', flavor)
