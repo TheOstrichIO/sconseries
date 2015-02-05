@@ -1,6 +1,8 @@
 # Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=undefined-variable
 
-"""AddressBook library SConscript script"""
+"""AddressBook proto-based library SConscript script"""
 
+Protoc([], 'addressbook.proto', PROTOCPROTOPATH='.',
+       PROTOCOUTDIR='.', PROTOCPYTHONOUTDIR=None)
 Lib('addressbook', 'addressbook.pb.cc')

@@ -1,4 +1,4 @@
-# Copyright 2014 The Ostrich / by Itamar O
+# Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=bad-whitespace
 
 """SCons site config script"""
@@ -65,7 +65,7 @@ ENV_EXTENSIONS = {
         # Common flags for all C++ builds
         CCFLAGS = ['-std=c++11', '-Wall', '-fvectorize', '-fslp-vectorize'],
         # Modules should be able to include relative to build root dir
-        CPPPATH = ['#$BUILDROOT'],
+        CPPPATH = ['#$BUILDROOT', '#'],
     ),
     'debug': dict(
         # Extra flags for debug C++ builds

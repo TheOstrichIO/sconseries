@@ -1,4 +1,4 @@
-# Copyright 2014 The Ostrich / by Itamar O
+# Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=bad-whitespace
 
 """SCons site init script - automatically imported by SConstruct"""
@@ -91,6 +91,7 @@ class FlavorBuilder(object):
                 Lib       = self._lib_wrapper(self._env.Library, module),
                 StaticLib = self._lib_wrapper(self._env.StaticLibrary, module),
                 SharedLib = self._lib_wrapper(self._env.SharedLibrary, module),
+                Protoc    = self._env.Protoc,
                 Prog      = nop,
             )
             SCons.Script._SConscript.GlobalDict.update(shortcuts)  # pylint: disable=protected-access
@@ -99,7 +100,7 @@ class FlavorBuilder(object):
                 variant_dir=os.path.join('$BUILDROOT', module))
         # Second pass over all modules - process program targets
         shortcuts = dict()
-        for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib'):
+        for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib', 'Protoc'):
             shortcuts[nop_shortcut] = nop
         for module in modules():
             sprint('|- Second pass: Reading module %s ...', module)
