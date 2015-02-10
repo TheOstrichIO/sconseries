@@ -5,6 +5,8 @@
 
 Import('*')
 
-Protoc([], 'addressbook.proto', PROTOCPROTOPATH='.',
-       PROTOCOUTDIR='.', PROTOCPYTHONOUTDIR=None)
-Lib('addressbook', 'addressbook.pb.cc')
+Protoc([], 'person.proto',
+       PROTOPATH=['$BUILDROOT'], PROTOCPPOUT='$BUILDROOT')
+Protoc([], 'addressbook.proto',
+       PROTOPATH=['$BUILDROOT'], PROTOCPPOUT='$BUILDROOT')
+Lib('addressbook', ['addressbook.pb.cc', 'person.pb.cc'])
