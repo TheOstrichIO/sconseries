@@ -1,12 +1,11 @@
 # Copyright 2015 The Ostrich / by Itamar O
-# pylint: disable=undefined-variable
+# pylint: disable=undefined-variable, invalid-name
 
 """AddressBook proto-based library SConscript script"""
 
 Import('*')
 
-Protoc([], 'person.proto',
-       PROTOPATH=['$BUILDROOT'], PROTOCPPOUT='$BUILDROOT')
-Protoc([], 'addressbook.proto',
-       PROTOPATH=['$BUILDROOT'], PROTOCPPOUT='$BUILDROOT')
-Lib('addressbook', ['addressbook.pb.cc', 'person.pb.cc'])
+AbProtos = ['person.proto', 'addressbook.proto']
+
+Proto(AbProtos)
+Lib('addressbook', protos=AbProtos)

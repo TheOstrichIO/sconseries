@@ -3,8 +3,9 @@
 
 """SCons site init script - automatically imported by SConstruct"""
 
-import os
 from collections import defaultdict
+import os
+import re
 
 from SCons import Node
 from SCons.Errors import StopError
@@ -68,6 +69,8 @@ class FlavorBuilder(object):
         self._libs = dict()
         # Initialize programs dictionary
         self._progs = defaultdict(list)
+        # Initialize shared protos dictionary
+        self._proto_cc = dict()
         # Apply flavored env overrides and customizations
         if flavor in ENV_OVERRIDES:
             self._env.Replace(**ENV_OVERRIDES[flavor])
@@ -90,7 +93,7 @@ class FlavorBuilder(object):
                 Lib       = self._lib_wrapper(self._env.Library, module),
                 StaticLib = self._lib_wrapper(self._env.StaticLibrary, module),
                 SharedLib = self._lib_wrapper(self._env.SharedLibrary, module),
-                Protoc    = self._env.Protoc,
+                Proto     = self._proto_wrapper(),
                 Prog      = nop,
             )
             self._env.SConscript(
@@ -99,7 +102,7 @@ class FlavorBuilder(object):
                 exports=shortcuts)
         # Second pass over all modules - process program targets
         shortcuts = dict()
-        for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib', 'Protoc'):
+        for nop_shortcut in ('Lib', 'StaticLib', 'SharedLib', 'Proto'):
             shortcuts[nop_shortcut] = nop
         for module in modules():
             sprint('|- Second pass: Reading module %s ...', module)
@@ -118,24 +121,90 @@ class FlavorBuilder(object):
         # Support using the flavor name as target name for its related targets
         self._env.Alias(self._flavor, '$BUILDROOT')
 
+    def _proto_wrapper(self):
+        """Return a wrapped Protoc builder."""
+        def compile_proto(proto_sources, **kwargs):
+            """Customized Protoc builder.
+
+            Uses Protoc builder to compile proto files specified in
+             `proto_sources`.
+
+            Optionally pass `cpp=False` to disable C++ code generation.
+            Optionally, pass `python=True` to enable Python code generation.
+
+            Optionally pass `PROTOPATH=[...]` to override default list of
+             proto search paths (default is [$BUILDROOT]).
+            Optionally pass `PROTOCPPOUT=path` and `PROTOPYOUT=path` to
+             override default output path for C++ / Python outputs
+             (respectively), when output for this language is enabled.
+             Default output paths are $BUILDROOT (so expect output files
+             in the module directory under the flavor build dir).
+            Tip: Don't mess with these...
+            """
+            if not hasattr(self._env, 'Protoc'):
+                raise StopError('Protoc tool not installed.')
+            # use user-specified value, or set default
+            kwargs.setdefault('PROTOPATH', ['$BUILDROOT'])
+            any_output = False
+            for gen_flag_name, default_gen_flag, path_name, default_path in [
+                    ('cpp', True, 'PROTOCPPOUT', '$BUILDROOT'),
+                    ('python', False, 'PROTOPYOUT', '$BUILDROOT'),
+                ]:
+                gen_output_flag = kwargs.pop(gen_flag_name, default_gen_flag)
+                if gen_output_flag:
+                    any_output = True
+                    # use user-specified value, or set default
+                    kwargs.setdefault(path_name, default_path)
+                else:
+                    kwargs[path_name] = ''
+            # check that at least one output language is enabled
+            if any_output:
+                targets = self._env.Protoc([], proto_sources, **kwargs)
+                for gen_node in targets:
+                    gen_filename = os.path.basename(gen_node.path)
+                    if gen_filename.endswith('.pb.cc'):
+                        # Save generated .pb.cc sources in proto_cc dictionary
+                        #  (without the ".pb.cc" suffix)
+                        self._proto_cc[gen_filename[:-6]] = gen_node
+            else:
+                sprint('warning: Proto target with no output directives')
+        return compile_proto
+
+    def _extend_proto_sources(self, sources, kwargs_dict):
+        """Return the sources list, extended with proto-cc-sources.
+
+        @param  sources     The original list of sources
+        @param kwargs_dict  The keyword argument dictionary
+
+        The protos list, if specified, is at kwargs_dict['protos'].
+        If it is specified, the sources list is extended accordingly,
+         and the 'protos' key is removed (so it's safe to pass-through).
+        """
+        return listify(sources) + [
+            self._proto_cc[re.sub(r'\.proto$', '', proto)]
+            for proto in listify(kwargs_dict.pop('protos', None))]
+
     def _lib_wrapper(self, bldr_func, module):
         """Return a wrapped customized flavored library builder for module.
 
         @param  builder_func        Underlying SCons builder function
         @param  module              Module name
         """
-        def build_lib(lib_name, sources, *args, **kwargs):
+        def build_lib(lib_name, sources=None, **kwargs):
             """Customized library builder.
 
             @param  lib_name    Library name
             @param  sources     Source file (or list of source files)
+            kwargs params:
+            @param  protos      Names of proto (or protos) to add to target.
             """
             # Create unique library key from module and library name
             lib_key = self.lib_key(module, lib_name)
             assert lib_key not in self._libs
+            # Extend sources list with protos from generated code manager
+            sources = self._extend_proto_sources(sources, kwargs)
             # Store resulting library node in shared dictionary
-            self._libs[lib_key] = bldr_func(lib_name, sources,
-                                            *args, **kwargs)
+            self._libs[lib_key] = bldr_func(lib_name, sources, **kwargs)
         return build_lib
 
     def _prog_wrapper(self, module, default_install=True):
@@ -145,18 +214,20 @@ class FlavorBuilder(object):
         @param  default_install     Whether built program nodes should be
                                     installed in bin-dir by default
         """
-        def build_prog(prog_name, sources, with_libs=None, *args, **kwargs):
+        def build_prog(prog_name, sources=None, with_libs=None, **kwargs):
             """Customized program builder.
 
             @param  prog_name   Program name
             @param  sources     Source file (or list of source files)
             @param  with_libs   Library name (or list of library names) to
                                 link with.
+            kwargs params:
             @param  install     Binary flag to override default value from
                                 closure (`default_install`).
+            @param  protos      Names of proto (or protos) to add to target.
             """
-            # Make sure sources is a list
-            sources = listify(sources)
+            # Extend sources list with protos from generated code manager
+            sources = self._extend_proto_sources(sources, kwargs)
             install_flag = kwargs.pop('install', default_install)
             # Process library dependencies - add libs specified in `with_libs`
             for lib_name in listify(with_libs):
@@ -177,7 +248,7 @@ class FlavorBuilder(object):
                     raise StopError('Library identifier "%s" didn\'t match '
                                     'any library. Is it a typo?' % (lib_name))
             # Build the program and add to prog nodes dict if installable
-            prog_nodes = self._env.Program(prog_name, sources, *args, **kwargs)
+            prog_nodes = self._env.Program(prog_name, sources, **kwargs)
             if install_flag:
                 # storing each installable node in a dictionary instead of
                 #  defining InstallAs target on the spot, because there's
