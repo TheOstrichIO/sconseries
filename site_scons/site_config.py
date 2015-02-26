@@ -5,6 +5,7 @@
 
 import os
 
+from ext_lib import ExtLib
 from site_utils import module_dirs_generator
 
 # Directory for build process outputs (object files etc.)
@@ -66,6 +67,10 @@ ENV_EXTENSIONS = {
         CCFLAGS = ['-std=c++11', '-Wall', '-fvectorize', '-fslp-vectorize'],
         # Modules should be able to include relative to build root dir
         CPPPATH = ['#$BUILDROOT'],
+        # List of supported external libraries
+        EXTERNAL_LIBRARIES = [
+            ExtLib('protobuf'),
+        ],
     ),
     'debug': dict(
         # Extra flags for debug C++ builds

@@ -1,9 +1,9 @@
 # Copyright 2015 The Ostrich / by Itamar O
 # pylint: disable=undefined-variable
 
-"""AddressBook Writer SConscript script"""
+"""AddressBook Reader SConscript script"""
 
 Import('*')
 
-Prog('reader', 'reader.cc', with_libs='AddressBook::addressbook',
-     LIBS=['protobuf'])
+Prog('reader', 'reader.cc',
+     with_libs=['AddressBook::addressbook', 'protobuf'])

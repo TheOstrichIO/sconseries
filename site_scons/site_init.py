@@ -229,6 +229,10 @@ class FlavorBuilder(object):
             # Extend sources list with protos from generated code manager
             sources = self._extend_proto_sources(sources, kwargs)
             install_flag = kwargs.pop('install', default_install)
+            # Extract optional keywords arguments that we might extend
+            cpp_paths = listify(kwargs.pop('CPPPATH', None))
+            ext_libs = listify(kwargs.pop('LIBS', None))
+            lib_paths = listify(kwargs.pop('LIBPATH', None))
             # Process library dependencies - add libs specified in `with_libs`
             for lib_name in listify(with_libs):
                 lib_keys = listify(self._get_matching_lib_keys(lib_name))
@@ -245,8 +249,24 @@ class FlavorBuilder(object):
                                     (lib_name, len(lib_keys),
                                      ', '.join(lib_keys)))
                 else:  # empty lib_keys
-                    raise StopError('Library identifier "%s" didn\'t match '
-                                    'any library. Is it a typo?' % (lib_name))
+                    # Maybe it's an external library
+                    ext_lib = self._get_external_library(lib_name)
+                    if ext_lib:
+                        # Matched external library - extend target parameters
+                        cpp_paths.extend(ext_lib.cpp_paths)
+                        ext_libs.extend(ext_lib.libs)
+                        lib_paths.extend(ext_lib.lib_paths)
+                    else:
+                        raise StopError(
+                            'Library identifier "%s" didn\'t match any '
+                            'library. Is it a typo?' % (lib_name))
+            # Return extended construction environment parameters to kwargs
+            if cpp_paths:
+                kwargs['CPPPATH'] = cpp_paths
+            if ext_libs:
+                kwargs['LIBS'] = ext_libs
+            if lib_paths:
+                kwargs['LIBPATH'] = lib_paths
             # Build the program and add to prog nodes dict if installable
             prog_nodes = self._env.Program(prog_name, sources, **kwargs)
             if install_flag:
@@ -273,3 +293,9 @@ class FlavorBuilder(object):
             lib_key_suffix = '%s%s' % (self._key_sep, lib_query)
             return [lib_key for lib_key in self._libs
                     if lib_key.endswith(lib_key_suffix)]
+
+    def _get_external_library(self, lib_name):
+        """Return external library object with name `lib_name` (or None)."""
+        for lib in self._env['EXTERNAL_LIBRARIES']:
+            if lib.name == lib_name:
+                return lib
